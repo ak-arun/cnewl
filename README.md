@@ -1,20 +1,32 @@
 # cnewl
-misc
+
 
 =========================
+
 hivequerygrabber - A hive hook to capture queries against hive and stream the queries to Kafka topic. 
+
 This code need to be modified to adapt to all range of kafka installs. Current code works for SASL_SSL kafka configuration and kerberised hive. 
+
 The follwing hive configurations are needed to operationalize the hook. 
 
 set hivehook.kafka.security.protocol=SASL_SSL;
+
 set hivehook.kafka.serviceName=hdf-kafka;
+
 set hivehook.kafka.bootstrapServers=***
+
 set hivehook.kafka.sslcontext.truststore.type=JKS;
+
 set hivehook.kafka.sslcontext.truststore.password=***
+
 set hivehook.kafka.sslcontext.truststore.file=***;
+
 set hivehook.kafka.topicName=***; 
+
 set hive.exec.pre.hooks=com.ak.hive.querygrabber.hook.QueryHook;
+
 set hive.exec.post.hooks=com.ak.hive.querygrabber.hook.QueryHook;
+
 set hive.exec.failure.hooks=com.ak.hive.querygrabber.hook.QueryHook;
 
 The jar for this application need to be made available on the hive aux path. 
