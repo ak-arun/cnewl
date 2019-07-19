@@ -1,7 +1,7 @@
 # cnewl
 
 
-=============================================================================================================================
+===============================================================================================
 
 hivequerygrabber - A hive hook to capture queries against hive and stream the queries to Kafka topic. 
 
@@ -41,7 +41,7 @@ mvn project and copy the jar from the install directory
 
 For setting hive aux path, refer instructions at https://doc.lucidworks.com/fusion-server/4.0/search-development/getting-data-in/other-ingest-methods/import-via-hive.html#add-the-serde-jar-to-hive-classpath
 
-=============================================================================================================================
+===============================================================================================
 
 onetimegrabber
 
@@ -54,7 +54,7 @@ mvn clean package
 
 Running Instructions ( on an HDP cluster  )
 
-java -cp onetimegrabber-0.0.1.jar::/usr/hdp/current/hive-client/lib/*:/usr/hdp/current/hadoop-client/lib/*:/usr/hdp/current/hadoop-client/* com.ak.hive.ddlgrabber.onetimegrabber.HiveDDLOnetimeGrabber grabber.properties
+java -cp onetimegrabber-0.0.1.jar:/usr/hdp/current/hive-client/lib/*:/usr/hdp/current/hadoop-client/lib/*:/usr/hdp/current/hadoop-client/* com.ak.hive.ddlgrabber.onetimegrabber.HiveDDLOnetimeGrabber grabber.properties
 
 
 
