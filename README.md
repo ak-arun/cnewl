@@ -1,7 +1,7 @@
 # cnewl
 
 
-=========================
+=============================================================================================================================
 
 hivequerygrabber - A hive hook to capture queries against hive and stream the queries to Kafka topic. 
 
@@ -40,5 +40,23 @@ For RPM based distribution, run the rpm -ivh target/rpm/hivequerygrabber/RPMS/no
 mvn project and copy the jar from the install directory
 
 For setting hive aux path, refer instructions at https://doc.lucidworks.com/fusion-server/4.0/search-development/getting-data-in/other-ingest-methods/import-via-hive.html#add-the-serde-jar-to-hive-classpath
+
+=============================================================================================================================
+
+onetimegrabber
+
+This project captures the ddls for all tables in hive. It connects to the hive metastore database, gets the db and table listing and connects to hive to capture the actual ddl. Once the ddl is fetched, it pushes those into an rdbms. 
+The program is controlled by a property file ( provided ) 
+
+Build
+
+mvn clean package
+
+Running Instructions ( on an HDP cluster  )
+
+java -cp onetimegrabber-0.0.1.jar::/usr/hdp/current/hive-client/lib/*:/usr/hdp/current/hadoop-client/lib/*:/usr/hdp/current/hadoop-client/* com.ak.hive.ddlgrabber.onetimegrabber.HiveDDLOnetimeGrabber grabber.properties
+
+
+
 
 
