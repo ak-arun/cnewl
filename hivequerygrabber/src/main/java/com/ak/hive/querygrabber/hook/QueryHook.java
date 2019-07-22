@@ -302,6 +302,7 @@ public class QueryHook implements ExecuteWithHookContext {
 
   @SuppressWarnings({ "unchecked", "rawtypes" })
  void sendNotification(String topicName,boolean keyTabLogin, UserGroupInformation userGroupInformation, String notificationMessage) throws Exception {
+	 notificationMessage = notificationMessage.trim().replace("\n", " ").replace("\r", " ").replaceAll(" +", " ").trim();
 	 final ProducerRecord<String, String> record = new ProducerRecord<String, String>(topicName, notificationMessage);
 	  if(keyTabLogin){
 		  notifyRecord(getOrCreate("hs2"),record);
