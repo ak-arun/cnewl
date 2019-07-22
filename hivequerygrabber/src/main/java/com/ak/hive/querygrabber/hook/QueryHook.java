@@ -136,20 +136,6 @@ public class QueryHook implements ExecuteWithHookContext {
     executor.submit(new Runnable() {
         @Override
         public void run() {
-        	if(producerMap.keySet().size()!=2){
-        		Map<String, Object> propertyMap  = new HashMap<String, Object>();
-        		propertyMap.put(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG,configuration.get(HIVEHOOK_KAFKA_SSLCONTEXT_TRUSTSTORE_FILE));
-    			propertyMap.put(SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG,configuration.get(HIVEHOOK_KAFKA_SSLCONTEXT_TRUSTSTORE_PASSWORD));
-    			propertyMap.put(SslConfigs.SSL_TRUSTSTORE_TYPE_CONFIG,configuration.get(HIVEHOOK_KAFKA_SSLCONTEXT_TRUSTSTORE_TYPE,"JKS"));
-    			propertyMap.put(KEY_SERIALIZER,STRING_SERIALIZER);
-    			propertyMap.put(VALUE_SERIALIZER,STRING_SERIALIZER);
-    			propertyMap.put(BOOTSTRAP_SERVERS, configuration.get(HIVEHOOK_KAFKA_BOOTSTRAP_SERVERS));
-    			propertyMap.put(SASL_KERBEROS_SERVICE_NAME,configuration.get(HIVEHOOK_KAFKA_SERVICE_NAME));
-    			propertyMap.put(SECURITY_PROTOCOL, configuration.get(HIVEHOOK_KAFKA_SECURITY_PROTOCOL));
-    			hs2ProducerProperties=propertyMap;
-    			cliProducerProperties=propertyMap;
-        	}
-        	
         	
 			boolean keyTabLogin=false;
         	
@@ -161,18 +147,43 @@ public class QueryHook implements ExecuteWithHookContext {
 			try {
 				if(UserGroupInformation.isLoginKeytabBased()){
 					keyTabLogin=true;
-					hs2ProducerProperties.put(SaslConfigs.SASL_JAAS_CONFIG,JAAS_CONFIG_WITH_KEYTAB
-							.replace(
-									"<KAFKA_SERVICE_NAME>",configuration.get(HIVEHOOK_KAFKA_SERVICE_NAME))
-							.replace(
-									"<KAFKA_SERVICE_KEYTAB>",configuration.get(HIVE_SERVER2_KERBEROS_KEYTAB))
-							.replace(
-									"<KAFKA_SERVICE_PRINCIPAL>",configuration.get(HIVE_SERVER2_KERBEROS_PRINCIPAL).replace("_HOST", InetAddress.getLocalHost().getCanonicalHostName())));
+					if(!producerMap.containsKey("hs2")){
+						
+						hs2ProducerProperties.put(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG,configuration.get(HIVEHOOK_KAFKA_SSLCONTEXT_TRUSTSTORE_FILE));
+						hs2ProducerProperties.put(SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG,configuration.get(HIVEHOOK_KAFKA_SSLCONTEXT_TRUSTSTORE_PASSWORD));
+						hs2ProducerProperties.put(SslConfigs.SSL_TRUSTSTORE_TYPE_CONFIG,configuration.get(HIVEHOOK_KAFKA_SSLCONTEXT_TRUSTSTORE_TYPE,"JKS"));
+						hs2ProducerProperties.put(KEY_SERIALIZER,STRING_SERIALIZER);
+						hs2ProducerProperties.put(VALUE_SERIALIZER,STRING_SERIALIZER);
+						hs2ProducerProperties.put(BOOTSTRAP_SERVERS, configuration.get(HIVEHOOK_KAFKA_BOOTSTRAP_SERVERS));
+						hs2ProducerProperties.put(SASL_KERBEROS_SERVICE_NAME,configuration.get(HIVEHOOK_KAFKA_SERVICE_NAME));
+						hs2ProducerProperties.put(SECURITY_PROTOCOL, configuration.get(HIVEHOOK_KAFKA_SECURITY_PROTOCOL));
+						hs2ProducerProperties.put(SaslConfigs.SASL_JAAS_CONFIG,JAAS_CONFIG_WITH_KEYTAB
+								.replace(
+										"<KAFKA_SERVICE_NAME>",configuration.get(HIVEHOOK_KAFKA_SERVICE_NAME))
+								.replace(
+										"<KAFKA_SERVICE_KEYTAB>",configuration.get(HIVE_SERVER2_KERBEROS_KEYTAB))
+								.replace(
+										"<KAFKA_SERVICE_PRINCIPAL>",configuration.get(HIVE_SERVER2_KERBEROS_PRINCIPAL).replace("_HOST", InetAddress.getLocalHost().getCanonicalHostName())));
+					}
 				}
 				else{
-					cliProducerProperties.put(SaslConfigs.SASL_JAAS_CONFIG,JAAS_CONFIG_NO_KEYTAB
-							.replace(
-									"<KAFKA_SERVICE_NAME>",configuration.get(HIVEHOOK_KAFKA_SERVICE_NAME)));
+					
+					if(!producerMap.containsKey("cli")){
+						
+						cliProducerProperties.put(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG,configuration.get(HIVEHOOK_KAFKA_SSLCONTEXT_TRUSTSTORE_FILE));
+						cliProducerProperties.put(SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG,configuration.get(HIVEHOOK_KAFKA_SSLCONTEXT_TRUSTSTORE_PASSWORD));
+						cliProducerProperties.put(SslConfigs.SSL_TRUSTSTORE_TYPE_CONFIG,configuration.get(HIVEHOOK_KAFKA_SSLCONTEXT_TRUSTSTORE_TYPE,"JKS"));
+						cliProducerProperties.put(KEY_SERIALIZER,STRING_SERIALIZER);
+						cliProducerProperties.put(VALUE_SERIALIZER,STRING_SERIALIZER);
+						cliProducerProperties.put(BOOTSTRAP_SERVERS, configuration.get(HIVEHOOK_KAFKA_BOOTSTRAP_SERVERS));
+						cliProducerProperties.put(SASL_KERBEROS_SERVICE_NAME,configuration.get(HIVEHOOK_KAFKA_SERVICE_NAME));
+						cliProducerProperties.put(SECURITY_PROTOCOL, configuration.get(HIVEHOOK_KAFKA_SECURITY_PROTOCOL));
+						cliProducerProperties.put(SaslConfigs.SASL_JAAS_CONFIG,JAAS_CONFIG_NO_KEYTAB
+								.replace(
+										"<KAFKA_SERVICE_NAME>",configuration.get(HIVEHOOK_KAFKA_SERVICE_NAME)));
+					}
+					
+					
 				}
 			} catch (Exception e1) {
 				debugLog("Exception during JAAS configuration "+getTraceString(e1));
@@ -302,22 +313,22 @@ public class QueryHook implements ExecuteWithHookContext {
 
   @SuppressWarnings({ "unchecked", "rawtypes" })
  void sendNotification(String topicName,boolean keyTabLogin, UserGroupInformation userGroupInformation, String notificationMessage) throws Exception {
-	 notificationMessage = notificationMessage.trim().replace("\n", " ").replace("\r", " ").replaceAll(" +", " ").trim();
-	 final ProducerRecord<String, String> record = new ProducerRecord<String, String>(topicName, notificationMessage);
+	  notificationMessage = notificationMessage.trim().replace("\n", " ").replace("\r", " ").replaceAll(" +", " ").trim();
+	 final ProducerRecord<String, String> record = new ProducerRecord<String, String>(topicName, notificationMessage.trim().replaceAll(" +", " "));
 	  if(keyTabLogin){
-		  notifyRecord(getOrCreate("hs2"),record);
+		  notifyRecord(getOrCreateProducer("hs2"),record);
 	  }else{
 		  userGroupInformation.doAs(new PrivilegedExceptionAction() {
 			@Override
 			public Object run() throws Exception {
-				notifyRecord(getOrCreate("cli"),record);
+				notifyRecord(getOrCreateProducer("cli"),record);
 				return null;
 			}
 		});
 	  }
   }
   
-	private KafkaProducer<String, String> getOrCreate(String producerIdentity) {
+	private KafkaProducer<String, String> getOrCreateProducer(String producerIdentity) {
 		if (!producerMap.containsKey(producerIdentity)) {
 			KafkaProducer<String, String> producer = null;
 			switch (producerIdentity) {
