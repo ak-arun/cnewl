@@ -97,6 +97,11 @@ public class QueryHook implements ExecuteWithHookContext {
             + "storeKey=false "
             + "loginModuleControlFlag=required "
             + "useTicketCache=true;";
+	
+	
+	private static Map<String,KafkaProducer<String, String>> producerMap = new HashMap<String, KafkaProducer<String,String>>();
+	private static Map<String, Object> hs2ProducerProperties = new HashMap<String, Object>();
+	private static Map<String, Object> cliProducerProperties = new HashMap<String, Object>();
 
   public QueryHook() {
     synchronized(LOCK) {
@@ -122,22 +127,30 @@ public class QueryHook implements ExecuteWithHookContext {
   @Override
   public void run(final HookContext hookContext) throws Exception {
 	  
-	Map<String, Object> propertyMap = new HashMap<String, Object>();
+	
+	
+	
     final long currentTime = System.currentTimeMillis();
     HiveConf configuration = new HiveConf(hookContext.getConf());
     
     executor.submit(new Runnable() {
         @Override
         public void run() {
+        	if(producerMap.keySet().size()!=2){
+        		Map<String, Object> propertyMap  = new HashMap<String, Object>();
+        		propertyMap.put(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG,configuration.get(HIVEHOOK_KAFKA_SSLCONTEXT_TRUSTSTORE_FILE));
+    			propertyMap.put(SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG,configuration.get(HIVEHOOK_KAFKA_SSLCONTEXT_TRUSTSTORE_PASSWORD));
+    			propertyMap.put(SslConfigs.SSL_TRUSTSTORE_TYPE_CONFIG,configuration.get(HIVEHOOK_KAFKA_SSLCONTEXT_TRUSTSTORE_TYPE,"JKS"));
+    			propertyMap.put(KEY_SERIALIZER,STRING_SERIALIZER);
+    			propertyMap.put(VALUE_SERIALIZER,STRING_SERIALIZER);
+    			propertyMap.put(BOOTSTRAP_SERVERS, configuration.get(HIVEHOOK_KAFKA_BOOTSTRAP_SERVERS));
+    			propertyMap.put(SASL_KERBEROS_SERVICE_NAME,configuration.get(HIVEHOOK_KAFKA_SERVICE_NAME));
+    			propertyMap.put(SECURITY_PROTOCOL, configuration.get(HIVEHOOK_KAFKA_SECURITY_PROTOCOL));
+    			hs2ProducerProperties=propertyMap;
+    			cliProducerProperties=propertyMap;
+        	}
         	
-        	propertyMap.put(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG,configuration.get(HIVEHOOK_KAFKA_SSLCONTEXT_TRUSTSTORE_FILE));
-			propertyMap.put(SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG,configuration.get(HIVEHOOK_KAFKA_SSLCONTEXT_TRUSTSTORE_PASSWORD));
-			propertyMap.put(SslConfigs.SSL_TRUSTSTORE_TYPE_CONFIG,configuration.get(HIVEHOOK_KAFKA_SSLCONTEXT_TRUSTSTORE_TYPE,"JKS"));
-			propertyMap.put(KEY_SERIALIZER,STRING_SERIALIZER);
-			propertyMap.put(VALUE_SERIALIZER,STRING_SERIALIZER);
-			propertyMap.put(BOOTSTRAP_SERVERS, configuration.get(HIVEHOOK_KAFKA_BOOTSTRAP_SERVERS));
-			propertyMap.put(SASL_KERBEROS_SERVICE_NAME,configuration.get(HIVEHOOK_KAFKA_SERVICE_NAME));
-			propertyMap.put(SECURITY_PROTOCOL, configuration.get(HIVEHOOK_KAFKA_SECURITY_PROTOCOL));
+        	
 			boolean keyTabLogin=false;
         	
 			/*
@@ -148,7 +161,7 @@ public class QueryHook implements ExecuteWithHookContext {
 			try {
 				if(UserGroupInformation.isLoginKeytabBased()){
 					keyTabLogin=true;
-					propertyMap.put(SaslConfigs.SASL_JAAS_CONFIG,JAAS_CONFIG_WITH_KEYTAB
+					hs2ProducerProperties.put(SaslConfigs.SASL_JAAS_CONFIG,JAAS_CONFIG_WITH_KEYTAB
 							.replace(
 									"<KAFKA_SERVICE_NAME>",configuration.get(HIVEHOOK_KAFKA_SERVICE_NAME))
 							.replace(
@@ -157,7 +170,7 @@ public class QueryHook implements ExecuteWithHookContext {
 									"<KAFKA_SERVICE_PRINCIPAL>",configuration.get(HIVE_SERVER2_KERBEROS_PRINCIPAL).replace("_HOST", InetAddress.getLocalHost().getCanonicalHostName())));
 				}
 				else{
-					propertyMap.put(SaslConfigs.SASL_JAAS_CONFIG,JAAS_CONFIG_NO_KEYTAB
+					cliProducerProperties.put(SaslConfigs.SASL_JAAS_CONFIG,JAAS_CONFIG_NO_KEYTAB
 							.replace(
 									"<KAFKA_SERVICE_NAME>",configuration.get(HIVEHOOK_KAFKA_SERVICE_NAME)));
 				}
@@ -184,14 +197,14 @@ public class QueryHook implements ExecuteWithHookContext {
 
             switch(hookContext.getHookType()) {
             case PRE_EXEC_HOOK:
-              sendNotification(propertyMap,topicName,keyTabLogin,hookContext.getUgi(),generatePreExecNotification(queryId,
+              sendNotification(topicName,keyTabLogin,hookContext.getUgi(),generatePreExecNotification(queryId,
                    queryStartTime, user, requestuser, numMrJobs, numTezJobs, opId));
               break;
             case POST_EXEC_HOOK:
-              sendNotification(propertyMap,topicName,keyTabLogin,hookContext.getUgi(),generatePostExecNotification(queryId, currentTime, user, requestuser, true, opId,queryString,hookContext.getOutputs(), hookContext.getInputs()));
+              sendNotification(topicName,keyTabLogin,hookContext.getUgi(),generatePostExecNotification(queryId, currentTime, user, requestuser, true, opId,queryString,hookContext.getOutputs(), hookContext.getInputs()));
               break;
             case ON_FAILURE_HOOK:
-              sendNotification(propertyMap,topicName,keyTabLogin,hookContext.getUgi(),generatePostExecNotification(queryId, currentTime, user, requestuser , false, opId, queryString,hookContext.getOutputs(), hookContext.getInputs()));
+              sendNotification(topicName,keyTabLogin,hookContext.getUgi(),generatePostExecNotification(queryId, currentTime, user, requestuser , false, opId, queryString,hookContext.getOutputs(), hookContext.getInputs()));
               break;
             default:
               break;
@@ -288,22 +301,41 @@ public class QueryHook implements ExecuteWithHookContext {
   }
 
   @SuppressWarnings({ "unchecked", "rawtypes" })
- void sendNotification(Map<String,Object>propertyMap,String topicName,boolean keyTabLogin, UserGroupInformation userGroupInformation, String notificationMessage) throws Exception {
+ void sendNotification(String topicName,boolean keyTabLogin, UserGroupInformation userGroupInformation, String notificationMessage) throws Exception {
 	 final ProducerRecord<String, String> record = new ProducerRecord<String, String>(topicName, notificationMessage);
 	  if(keyTabLogin){
-		  notifyRecord(propertyMap,record);
+		  notifyRecord(getOrCreate("hs2"),record);
 	  }else{
 		  userGroupInformation.doAs(new PrivilegedExceptionAction() {
 			@Override
 			public Object run() throws Exception {
-				notifyRecord(propertyMap,record);
+				notifyRecord(getOrCreate("cli"),record);
 				return null;
 			}
 		});
 	  }
   }
   
-  private boolean isDDL(String query) {
+	private KafkaProducer<String, String> getOrCreate(String producerIdentity) {
+		if (!producerMap.containsKey(producerIdentity)) {
+			KafkaProducer<String, String> producer = null;
+			switch (producerIdentity) {
+			case "hs2":
+				producer = new KafkaProducer<String, String>(
+						hs2ProducerProperties);
+				break;
+			case "cli":
+				producer = new KafkaProducer<String, String>(
+						cliProducerProperties);
+				break;
+			}
+			producerMap.put(producerIdentity, producer);
+		}
+
+		return producerMap.get(producerIdentity);
+	}
+
+private boolean isDDL(String query) {
 		try{
 			return DDL_START_WORDS.contains((query.trim().toUpperCase().split(" "))[0]);
 		}catch(Exception e){}
@@ -317,8 +349,7 @@ public class QueryHook implements ExecuteWithHookContext {
 		return false;
 	}
   
-  public void notifyRecord(Map<String,Object>propertyMap,ProducerRecord<String, String> record) {
-		KafkaProducer<String, String> producer = new KafkaProducer<String, String>(propertyMap);
+  public void notifyRecord(KafkaProducer<String, String> producer,ProducerRecord<String, String> record) {
 		producer.send(record, new Callback() {
 			public void onCompletion(RecordMetadata metadata,
 					Exception exception) {
@@ -326,11 +357,9 @@ public class QueryHook implements ExecuteWithHookContext {
 					exception.printStackTrace();
 					debugLog("Exception while Publishing to kafka"
 							+ getTraceString(exception));
-					
 				}
 			}
 		});
-		producer.close();
 	}
   
 	private String getTraceString(Exception e) {
