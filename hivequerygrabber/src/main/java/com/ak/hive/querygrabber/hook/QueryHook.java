@@ -36,6 +36,7 @@ import org.apache.kafka.common.config.SslConfigs;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import com.ak.hive.querygrabber.hook.entities.ProducerEntity;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 
@@ -44,6 +45,7 @@ public class QueryHook implements ExecuteWithHookContext {
 	private static final Log LOG = LogFactory.getLog(QueryHook.class.getName());
 	private static final Object LOCK = new Object();
 	private static ExecutorService executor;
+	private int producerKeepAliveSeconds;
 
 	private enum EventTypes {
 		QUERY_SUBMITTED, QUERY_COMPLETED
@@ -71,6 +73,7 @@ public class QueryHook implements ExecuteWithHookContext {
 	private static final String HIVEHOOK_KAFKA_SECURITY_PROTOCOL = "hivehook.kafka.security.protocol";
 	private static final String HIVEHOOK_KAFKA_SERVICE_NAME = "hivehook.kafka.serviceName";
 	private static final String HIVEHOOK_KAFKA_BOOTSTRAP_SERVERS = "hivehook.kafka.bootstrapServers";
+	private static final String HIVEHOOK_KAFKAPRODUCER_KEEPALIVE_SECONDS = "hivehook.kafka.producer.keepAliveSeconds";
 	
 	private static final String STRING_SERIALIZER = "org.apache.kafka.common.serialization.StringSerializer";
 	private static final String SECURITY_PROTOCOL = "security.protocol";
@@ -99,7 +102,7 @@ public class QueryHook implements ExecuteWithHookContext {
             + "useTicketCache=true;";
 	
 	
-	private static Map<String,KafkaProducer<String, String>> producerMap = new HashMap<String, KafkaProducer<String,String>>();
+	private static Map<String,ProducerEntity> producerMap = new HashMap<String, ProducerEntity>();
 	private static Map<String, Object> hs2ProducerProperties = new HashMap<String, Object>();
 	private static Map<String, Object> cliProducerProperties = new HashMap<String, Object>();
 
@@ -148,7 +151,8 @@ public class QueryHook implements ExecuteWithHookContext {
 				if(UserGroupInformation.isLoginKeytabBased()){
 					keyTabLogin=true;
 					if(!producerMap.containsKey("hs2")){
-						
+						//HIVEHOOK_KAFKAPRODUCER_KEEPALIVE_SECONDS
+						producerKeepAliveSeconds=configuration.getInt(HIVEHOOK_KAFKAPRODUCER_KEEPALIVE_SECONDS, 3600);
 						hs2ProducerProperties.put(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG,configuration.get(HIVEHOOK_KAFKA_SSLCONTEXT_TRUSTSTORE_FILE));
 						hs2ProducerProperties.put(SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG,configuration.get(HIVEHOOK_KAFKA_SSLCONTEXT_TRUSTSTORE_PASSWORD));
 						hs2ProducerProperties.put(SslConfigs.SSL_TRUSTSTORE_TYPE_CONFIG,configuration.get(HIVEHOOK_KAFKA_SSLCONTEXT_TRUSTSTORE_TYPE,"JKS"));
@@ -169,7 +173,7 @@ public class QueryHook implements ExecuteWithHookContext {
 				else{
 					
 					if(!producerMap.containsKey("cli")){
-						
+						producerKeepAliveSeconds=configuration.getInt(HIVEHOOK_KAFKAPRODUCER_KEEPALIVE_SECONDS, 3600);
 						cliProducerProperties.put(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG,configuration.get(HIVEHOOK_KAFKA_SSLCONTEXT_TRUSTSTORE_FILE));
 						cliProducerProperties.put(SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG,configuration.get(HIVEHOOK_KAFKA_SSLCONTEXT_TRUSTSTORE_PASSWORD));
 						cliProducerProperties.put(SslConfigs.SSL_TRUSTSTORE_TYPE_CONFIG,configuration.get(HIVEHOOK_KAFKA_SSLCONTEXT_TRUSTSTORE_TYPE,"JKS"));
@@ -329,22 +333,30 @@ public class QueryHook implements ExecuteWithHookContext {
   }
   
 	private KafkaProducer<String, String> getOrCreateProducer(String producerIdentity) {
-		if (!producerMap.containsKey(producerIdentity)) {
-			KafkaProducer<String, String> producer = null;
-			switch (producerIdentity) {
-			case "hs2":
-				producer = new KafkaProducer<String, String>(
-						hs2ProducerProperties);
-				break;
-			case "cli":
-				producer = new KafkaProducer<String, String>(
-						cliProducerProperties);
-				break;
+		
+		boolean createNew = false;
+		
+		if(producerMap.containsKey(producerIdentity)){
+			ProducerEntity producerEntity = producerMap.get(producerIdentity);
+			if(isResetRequired(producerEntity)){
+				createNew=true;
+				producerEntity.getProducer().close();
+				debugLog("Closing Kafka Producer since the active time has exceeded the maximum configured keepalive time");
 			}
-			producerMap.put(producerIdentity, producer);
+		}else{
+			createNew = true;
 		}
-
-		return producerMap.get(producerIdentity);
+		
+		if(createNew){
+			debugLog("creating new kafka producer");
+			switch (producerIdentity) {
+			case "hs2": producerMap.put(producerIdentity,new ProducerEntity(new KafkaProducer<String, String>(hs2ProducerProperties), new Date().getTime()));
+			break;
+			case "cli" :  producerMap.put(producerIdentity,new ProducerEntity(new KafkaProducer<String, String>(cliProducerProperties), new Date().getTime()));
+			break;
+			}
+		}
+		return producerMap.get(producerIdentity).getProducer();
 	}
 
 private boolean isDDL(String query) {
@@ -385,4 +397,9 @@ private boolean isDDL(String query) {
 			 LOG.debug(message);
 		 }
 	}
+	
+	private boolean isResetRequired(ProducerEntity p){
+		return (((new Date().getTime())-p.getCreateTimeMillis())/1000) >=producerKeepAliveSeconds? true : false;
+	}
+	
 }
