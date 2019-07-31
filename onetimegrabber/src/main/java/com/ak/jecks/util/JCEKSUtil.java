@@ -21,7 +21,9 @@ public class JCEKSUtil {
 			//ignore
 			}
 		ks.load(fis, password);
+		if(fis!=null){
 		fis.close();
+		}
 		return ks;
 	}
 
