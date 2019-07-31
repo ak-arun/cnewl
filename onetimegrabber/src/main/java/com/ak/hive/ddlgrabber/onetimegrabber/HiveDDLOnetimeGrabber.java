@@ -5,6 +5,11 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.UnrecoverableKeyException;
+import java.security.cert.CertificateException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
@@ -22,6 +27,7 @@ import com.ak.hive.ddlgrabber.onetimegrabber.db.DDLPersistTask;
 import com.ak.hive.ddlgrabber.onetimegrabber.entities.DBConfig;
 import com.ak.hive.ddlgrabber.onetimegrabber.entities.DDLObject;
 import com.ak.hive.ddlgrabber.onetimegrabber.exceptions.DBException;
+import com.ak.jceks.util.JCEKSUtil;
 import com.google.common.collect.Iterables;
 
 public class HiveDDLOnetimeGrabber {
@@ -30,12 +36,14 @@ public class HiveDDLOnetimeGrabber {
 	
 	List<DDLObject> ddls = null;
 	
-	public static void main(String[] args) throws DBException, FileNotFoundException, IOException, SQLException, InterruptedException {
+	public static void main(String[] args) throws DBException, FileNotFoundException, IOException, SQLException, InterruptedException, KeyStoreException, NoSuchAlgorithmException, CertificateException, UnrecoverableKeyException {
 		
 		Properties properties = new Properties();
 		properties.load(new FileReader(new File(args[0])));
 		
 		DAO dao = new DAO();
+		
+		KeyStore keyStore = JCEKSUtil.loadKeyStore(properties.getProperty("jceks.file.path"), args[1].toCharArray());
 		
 		DBConfig confHive = new DBConfig();
 		confHive.setPrincipal(properties.getProperty("hive.user.principal"));
@@ -46,14 +54,14 @@ public class HiveDDLOnetimeGrabber {
 		
 		DBConfig confMetastore = new DBConfig();
 		confMetastore.setUserName(properties.getProperty("meta.db.user.name"));
-		confMetastore.setPassword(properties.getProperty("meta.db.user.password"));
+		confMetastore.setPassword(new String(keyStore.getKey("meta.db.user.password", args[1].toCharArray()).getEncoded()));
 		confMetastore.setDriverClassName(properties.getProperty("meta.db.driver.class"));
 		confMetastore.setConnectString(properties.getProperty("meta.db.connection.string"));
 		confMetastore.setDbType(properties.getProperty("meta.db.type"));
 		
 		DBConfig confDestDb = new DBConfig();
 		confDestDb.setUserName(properties.getProperty("ddlstore.db.user.name"));
-		confDestDb.setPassword(properties.getProperty("ddlstore.db.user.password"));
+		confDestDb.setPassword(new String(keyStore.getKey("ddlstore.db.user.password", args[1].toCharArray()).getEncoded()));
 		confDestDb.setDriverClassName(properties.getProperty("ddlstore.db.driver.class"));
 		confDestDb.setConnectString(properties.getProperty("ddlstore.db.connection.string"));
 		confDestDb.setDbType(properties.getProperty("ddlstore.db.type"));
