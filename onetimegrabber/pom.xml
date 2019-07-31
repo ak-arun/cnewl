@@ -18,7 +18,7 @@
 		<hive.version>1.2.1</hive.version>
 		<hadoop.version>2.7.3</hadoop.version>
 		<kafka.version>1.0.0.3.1.0.14-1</kafka.version>
-		<app.home>/home/user/rpmtest1</app.home>
+		<app.home>/home/hdfs/otg</app.home>
 		<postgres.version>42.2.6</postgres.version>
 		<mysql.version>5.1.24</mysql.version>
 	</properties>
@@ -132,23 +132,52 @@
 					<mappings>
 						<mapping>
 							<directory>${app.home}/lib/</directory>
+							<filemode>777</filemode>
+							<username>hdfs</username>
+							<groupname>hadoop</groupname>
 							<sources>
 								<source>
 									<location>target/onetimegrabber-${project.version}.jar</location>
 								</source>
 							</sources>
-							<!-- <dependency>
-								<excludes>
-									<exclude>org.slf4j:slf4j-api</exclude>
-									<exclude>org.xerial.snappy:snappy-java</exclude>
-									<exclude>org.lz4:lz4-java</exclude>
-									<exclude>org.apache.kafka:kafka-clients</exclude>
-								</excludes>
-							</dependency> -->
 							<artifact />
 						</mapping>
 						<mapping>
+							<directory>${app.home}/sh</directory>
+							<filemode>777</filemode>
+							<username>hdfs</username>
+							<groupname>hadoop</groupname>
+							<sources>
+								<source>
+									<location>${project.basedir}/sh/run.sh</location>
+									<destination>run.sh</destination>
+								</source>
+							</sources>
+						</mapping>
+						<mapping>
+							<directory>${app.home}/sh</directory>
+							<filemode>777</filemode>
+							<username>hdfs</username>
+							<groupname>hadoop</groupname>
+							<sources>
+								<source>
+									<location>${project.basedir}/sh/kill.sh</location>
+									<destination>kill.sh</destination>
+								</source>
+							</sources>
+						</mapping>
+						<mapping>
+							<directory>/home/hdfs/otg/log</directory>
+							<filemode>750</filemode>
+							<username>hdfs</username>
+							<groupname>hadoop</groupname>
+						</mapping>
+
+						<mapping>
 							<directory>${app.home}/conf</directory>
+							<filemode>777</filemode>
+							<username>hdfs</username>
+							<groupname>hadoop</groupname>
 							<configuration>true</configuration>
 							<sources>
 								<source>
