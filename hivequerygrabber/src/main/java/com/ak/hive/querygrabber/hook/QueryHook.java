@@ -185,13 +185,13 @@ public QueryHook() {
             String queryId = plan.getQueryId();
             String queryString = plan.getQueryStr();   
 	    boolean skip = false;
-		for (String s : configuration.get(HIVEHOOK_QUERY_SKIP_PATTERN, "").split(",")) {
-			if (queryString != null && queryString.trim().startsWith(s.trim())) {
-			debugLog("Query matches skip pattern. Will not be sent to kafka.");
-			skip = true;
-			break;
-			}
+	    for (String pattern : configuration.get(HIVEHOOK_QUERY_SKIP_PATTERN, "").split(",")) {
+		if (queryString != null && queryString.replaceAll("\\s+","").startsWith(pattern.replaceAll("\\s+",""))) {
+		debugLog("Query matches skip pattern. Will not be sent to kafka.");
+		skip = true;
+		break;
 		}
+	    }
 					
 		if (!skip) {
 	            switch(hookContext.getHookType()) {
