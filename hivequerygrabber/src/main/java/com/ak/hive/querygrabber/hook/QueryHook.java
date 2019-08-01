@@ -186,15 +186,15 @@ public QueryHook() {
             String queryString = plan.getQueryStr();   
 	    boolean skip = false;
 	    for (String pattern : configuration.get(HIVEHOOK_QUERY_SKIP_PATTERN, "").split(",")) {
-		pattern = pattern.replaceAll("\\s+", "");
+		pattern = pattern.replaceAll("\\s+", "").toUpperCase();
 		if (pattern.length() > 0 && !skip) {
-		   if (queryString != null&& queryString.replaceAll("\\s+", "").startsWith(pattern)) {
-		     debugLog("Query matches skip pattern. Will not be sent to kafka.");
-		     skip = true;
-		     break;
-		    }
+		 if (queryString != null&& queryString.replaceAll("\\s+", "").toUpperCase().startsWith(pattern)) {
+		  debugLog("Query matches skip pattern. Will not be sent to kafka.");
+		  skip = true;
+		  break;
 		}
-	   }
+	       }
+	     }
 		if (!skip) {
 	            switch(hookContext.getHookType()) {
 	            case PRE_EXEC_HOOK:
