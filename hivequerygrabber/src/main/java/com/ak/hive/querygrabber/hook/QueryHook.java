@@ -39,33 +39,25 @@ import org.json.JSONObject;
 import com.ak.hive.querygrabber.hook.entities.ProducerEntity;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
-
 public class QueryHook implements ExecuteWithHookContext {
-
 	private static final Log LOG = LogFactory.getLog(QueryHook.class.getName());
 	private static final Object LOCK = new Object();
 	private static ExecutorService executor;
 	private int producerKeepAliveSeconds;
-
 	private enum EventTypes {
 		QUERY_SUBMITTED, QUERY_COMPLETED
 	};
-
 	private enum OtherInfoTypes {
 		QUERY, STATUS, TEZ, MAPRED
 	};
-
 	private enum PrimaryFilterTypes {
 		user, requestuser, operationid
 	};
-
 	private static final int WAIT_TIME = 3;
 	private static final List<String> DDL_START_WORDS = Arrays
 			.asList(new String[] { "CREATE", "ALTER", "DROP" });
 	private static final List<String> DB_START_WORDS = Arrays
 			.asList(new String[] { "DATABASE", "SCHEMA" });
-	
-
 	private static final String HIVEHOOK_KAFKA_SSLCONTEXT_TRUSTSTORE_TYPE = "hivehook.kafka.sslcontext.truststore.type";
 	private static final String HIVEHOOK_KAFKA_SSLCONTEXT_TRUSTSTORE_PASSWORD = "hivehook.kafka.sslcontext.truststore.password";
 	private static final String HIVEHOOK_KAFKA_SSLCONTEXT_TRUSTSTORE_FILE = "hivehook.kafka.sslcontext.truststore.file";
@@ -75,7 +67,6 @@ public class QueryHook implements ExecuteWithHookContext {
 	private static final String HIVEHOOK_KAFKA_BOOTSTRAP_SERVERS = "hivehook.kafka.bootstrapServers";
 	private static final String HIVEHOOK_KAFKAPRODUCER_KEEPALIVE_SECONDS = "hivehook.kafka.producer.keepAliveSeconds";
 	private static final String HIVEHOOK_QUERY_SKIP_PATTERN = "hivehook.query.skipPattern";
-	
 	private static final String STRING_SERIALIZER = "org.apache.kafka.common.serialization.StringSerializer";
 	private static final String SECURITY_PROTOCOL = "security.protocol";
 	private static final String SASL_KERBEROS_SERVICE_NAME = "sasl.kerberos.service.name";
@@ -84,7 +75,6 @@ public class QueryHook implements ExecuteWithHookContext {
 	private static final String KEY_SERIALIZER = "key.serializer";
 	private static final String HIVE_SERVER2_KERBEROS_KEYTAB = "hive.server2.authentication.kerberos.keytab";
 	private static final String HIVE_SERVER2_KERBEROS_PRINCIPAL ="hive.server2.authentication.kerberos.principal";
-	
 	private static final String JAAS_CONFIG_WITH_KEYTAB="com.sun.security.auth.module.Krb5LoginModule required "
             + "useTicketCache=false "
             + "renewTicket=true "
@@ -92,7 +82,6 @@ public class QueryHook implements ExecuteWithHookContext {
             + "useKeyTab=true "
             + "keyTab=\"<KAFKA_SERVICE_KEYTAB>\" "
             + "principal=\"<KAFKA_SERVICE_PRINCIPAL>\";";
-	
 	private static final String JAAS_CONFIG_NO_KEYTAB="com.sun.security.auth.module.Krb5LoginModule required "
             + "loginModuleName=com.sun.security.auth.module.Krb5LoginModule "
             + "renewTicket=true "
@@ -101,13 +90,11 @@ public class QueryHook implements ExecuteWithHookContext {
             + "storeKey=false "
             + "loginModuleControlFlag=required "
             + "useTicketCache=true;";
-	
-	
 	private static Map<String,ProducerEntity> producerMap = new HashMap<String, ProducerEntity>();
 	private static Map<String, Object> hs2ProducerProperties = new HashMap<String, Object>();
 	private static Map<String, Object> cliProducerProperties = new HashMap<String, Object>();
 
-  public QueryHook() {
+public QueryHook() {
     synchronized(LOCK) {
       if (executor == null) {
         executor = Executors.newSingleThreadExecutor(
@@ -124,35 +111,25 @@ public class QueryHook implements ExecuteWithHookContext {
         });
       }
     }
-
     debugLog("Created Query Hook");
   }
 
   @Override
   public void run(final HookContext hookContext) throws Exception {
-	  
-	
-	
-	
     final long currentTime = System.currentTimeMillis();
     HiveConf configuration = new HiveConf(hookContext.getConf());
-    
     executor.submit(new Runnable() {
         @Override
         public void run() {
-        	
 			boolean keyTabLogin=false;
-        	
 			/*
 			 * Dynamic JAAS Configuration as in
 			 * https://cwiki.apache.org/confluence/display/KAFKA/KIP-85%3A+Dynamic+JAAS+configuration+for+Kafka+clients
 			 */
-			
 			try {
 				if(UserGroupInformation.isLoginKeytabBased()){
 					keyTabLogin=true;
 					if(!producerMap.containsKey("hs2")){
-						//HIVEHOOK_KAFKAPRODUCER_KEEPALIVE_SECONDS
 						producerKeepAliveSeconds=configuration.getInt(HIVEHOOK_KAFKAPRODUCER_KEEPALIVE_SECONDS, 3600);
 						hs2ProducerProperties.put(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG,configuration.get(HIVEHOOK_KAFKA_SSLCONTEXT_TRUSTSTORE_FILE));
 						hs2ProducerProperties.put(SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG,configuration.get(HIVEHOOK_KAFKA_SSLCONTEXT_TRUSTSTORE_PASSWORD));
@@ -193,9 +170,7 @@ public class QueryHook implements ExecuteWithHookContext {
 			} catch (Exception e1) {
 				debugLog("Exception during JAAS configuration "+getTraceString(e1));
 			} 
-			
 			String topicName = configuration.get(HIVEHOOK_KAFKA_TOPIC_NAME);
-        	
           try {
             QueryPlan plan = hookContext.getQueryPlan();
             if (plan == null) {
@@ -209,17 +184,16 @@ public class QueryHook implements ExecuteWithHookContext {
             int numTezJobs = Utilities.getTezTasks(plan.getRootTasks()).size();
             String queryId = plan.getQueryId();
             String queryString = plan.getQueryStr();   
-			boolean skip = false;
-					
-			for (String s : configuration.get(HIVEHOOK_QUERY_SKIP_PATTERN, "").split(",")) {
-				if (queryString != null && queryString.trim().startsWith(s.trim())) {
-				debugLog("Query matches skip pattern. Will not be sent to kafka.");
-				skip = true;
-				break;
-				}
+	    boolean skip = false;
+		for (String s : configuration.get(HIVEHOOK_QUERY_SKIP_PATTERN, "").split(",")) {
+			if (queryString != null && queryString.trim().startsWith(s.trim())) {
+			debugLog("Query matches skip pattern. Will not be sent to kafka.");
+			skip = true;
+			break;
 			}
+		}
 					
-			if (!skip) {
+		if (!skip) {
 	            switch(hookContext.getHookType()) {
 	            case PRE_EXEC_HOOK:
 	              sendNotification(topicName,keyTabLogin,hookContext.getUgi(),generatePreExecNotification(queryId,
