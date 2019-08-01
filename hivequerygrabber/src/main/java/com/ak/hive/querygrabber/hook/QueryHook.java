@@ -74,6 +74,7 @@ public class QueryHook implements ExecuteWithHookContext {
 	private static final String HIVEHOOK_KAFKA_SERVICE_NAME = "hivehook.kafka.serviceName";
 	private static final String HIVEHOOK_KAFKA_BOOTSTRAP_SERVERS = "hivehook.kafka.bootstrapServers";
 	private static final String HIVEHOOK_KAFKAPRODUCER_KEEPALIVE_SECONDS = "hivehook.kafka.producer.keepAliveSeconds";
+	private static final String HIVEHOOK_QUERY_SKIP_PATTERN = "hivehook.query.skipPattern";
 	
 	private static final String STRING_SERIALIZER = "org.apache.kafka.common.serialization.StringSerializer";
 	private static final String SECURITY_PROTOCOL = "security.protocol";
@@ -207,23 +208,34 @@ public class QueryHook implements ExecuteWithHookContext {
             int numMrJobs = Utilities.getMRTasks(plan.getRootTasks()).size();
             int numTezJobs = Utilities.getTezTasks(plan.getRootTasks()).size();
             String queryId = plan.getQueryId();
-            
             String queryString = plan.getQueryStr();   
-
-            switch(hookContext.getHookType()) {
-            case PRE_EXEC_HOOK:
-              sendNotification(topicName,keyTabLogin,hookContext.getUgi(),generatePreExecNotification(queryId,
-                   queryStartTime, user, requestuser, numMrJobs, numTezJobs, opId));
-              break;
-            case POST_EXEC_HOOK:
-              sendNotification(topicName,keyTabLogin,hookContext.getUgi(),generatePostExecNotification(queryId, currentTime, user, requestuser, true, opId,queryString,hookContext.getOutputs(), hookContext.getInputs()));
-              break;
-            case ON_FAILURE_HOOK:
-              sendNotification(topicName,keyTabLogin,hookContext.getUgi(),generatePostExecNotification(queryId, currentTime, user, requestuser , false, opId, queryString,hookContext.getOutputs(), hookContext.getInputs()));
-              break;
-            default:
-              break;
-            }
+			boolean skip = false;
+					
+			for (String s : configuration.get(HIVEHOOK_QUERY_SKIP_PATTERN, "").split(",")) {
+				if (queryString != null && queryString.trim().startsWith(s.trim())) {
+				debugLog("Query matches skip pattern. Will not be sent to kafka.");
+				skip = true;
+				break;
+				}
+			}
+					
+			if (!skip) {
+	            switch(hookContext.getHookType()) {
+	            case PRE_EXEC_HOOK:
+	              sendNotification(topicName,keyTabLogin,hookContext.getUgi(),generatePreExecNotification(queryId,
+	                   queryStartTime, user, requestuser, numMrJobs, numTezJobs, opId,queryString));
+	              break;
+	            case POST_EXEC_HOOK:
+	              sendNotification(topicName,keyTabLogin,hookContext.getUgi(),generatePostExecNotification(queryId, currentTime, user, requestuser, true, opId,queryString,hookContext.getOutputs(), hookContext.getInputs()));
+	              break;
+	            case ON_FAILURE_HOOK:
+	              sendNotification(topicName,keyTabLogin,hookContext.getUgi(),generatePostExecNotification(queryId, currentTime, user, requestuser , false, opId, queryString,hookContext.getOutputs(), hookContext.getInputs()));
+	              break;
+	            default:
+	              break;
+	            }
+			}
+            
           } catch (Exception e) {
         	  debugLog("Failed to submit plan: "+ StringUtils.stringifyException(e));
           }
@@ -232,11 +244,12 @@ public class QueryHook implements ExecuteWithHookContext {
   }
 
   String generatePreExecNotification(String queryId,
-      long startTime, String user, String requestuser, int numMrJobs, int numTezJobs, String opId) throws Exception {
+      long startTime, String user, String requestuser, int numMrJobs, int numTezJobs, String opId, String queryString) throws Exception {
 
 	  
     JSONObject queryObj = new JSONObject();
     queryObj.put("hookType", "pre");
+    queryObj.put("queryText", queryString);
     
     
     debugLog("Received pre-hook notification for :" + queryId);
@@ -401,5 +414,4 @@ private boolean isDDL(String query) {
 	private boolean isResetRequired(ProducerEntity p){
 		return (((new Date().getTime())-p.getCreateTimeMillis())/1000) >=producerKeepAliveSeconds? true : false;
 	}
-	
 }
