@@ -120,4 +120,29 @@ public class DAO {
 
 	}
 	
+	public  List<String> getDDLList(Connection con, String query) throws DBException{
+		List<String> ddlList = new ArrayList<String>();
+		String line = "";
+		String ddl = "";
+		try{
+			statement = con.createStatement();
+			rs = statement.executeQuery(query);
+			while(rs.next()){
+				line = rs.getString(1);
+				if(line.trim().equalsIgnoreCase("this is an eol")){
+					ddlList.add(ddl);
+					line="";
+					ddl="";
+				}else{
+					ddl = ddl + line;
+				}
+				
+			}
+		}catch(Exception e){
+			LOG.info("Exception encountered while getting ddls from hive "+DDLGrabberUtils.getTraceString(e));
+			throw new DBException(e);
+		}
+		return ddlList;
+	}
+	
 }
