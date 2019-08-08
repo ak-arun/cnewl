@@ -186,6 +186,19 @@
 								</source>
 							</sources>
 						</mapping>
+						<mapping>
+							<directory>${app.home}/conf</directory>
+							<filemode>777</filemode>
+							<username>hdfs</username>
+							<groupname>hadoop</groupname>
+							<configuration>true</configuration>
+							<sources>
+								<source>
+									<location>${project.basedir}/log4j.properties</location>
+									<destination>log4j.properties</destination>
+								</source>
+							</sources>
+						</mapping>
 					</mappings>
 				</configuration>
 			</plugin>
