@@ -166,6 +166,20 @@
 								</source>
 							</sources>
 						</mapping>
+						
+						<mapping>
+							<directory>${app.home}/sh</directory>
+							<filemode>777</filemode>
+							<username>hdfs</username>
+							<groupname>hadoop</groupname>
+							<sources>
+								<source>
+									<location>${project.basedir}/sh/createJceks.sh</location>
+									<destination>createJceks.sh</destination>
+								</source>
+							</sources>
+						</mapping>
+						
 						<mapping>
 							<directory>/home/hdfs/otg/log</directory>
 							<filemode>750</filemode>
