@@ -18,6 +18,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
 
+import org.apache.log4j.PropertyConfigurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,6 +43,8 @@ public class HiveDDLOnetimeGrabber {
 		properties.load(new FileReader(new File(args[0])));
 		
 		DAO dao = new DAO();
+		
+		PropertyConfigurator.configure(properties.getProperty("log.config.path"));
 		
 		KeyStore keyStore = JCEKSUtil.loadKeyStore(properties.getProperty("jceks.file.path"), args[1].toCharArray());
 		
