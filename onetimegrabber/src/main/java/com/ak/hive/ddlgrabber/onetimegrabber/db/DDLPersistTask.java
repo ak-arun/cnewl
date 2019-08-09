@@ -48,7 +48,7 @@ public class DDLPersistTask implements Runnable{
 			dao = new DAO();
 			ddlsProcessed = new ArrayList<DDLObject>();
 			for(DDLObject o : ddls){
-				ddlString = dao.getDDL(connectionHive, o.getDatabaseName()+"."+o.getTableName());
+				ddlString = dao.getDDL(connectionHive, "`"+o.getDatabaseName()+"."+o.getTableName()+"`");
 				o.setDdl(ddlString);
 				ddlsProcessed.add(o);
 			}
