@@ -79,7 +79,7 @@ public TestStubHook() {
             if (plan == null) {
               return;
             }
-            System.out.println("Operation Name "+hookContext.getOperationName());
+            String operationName=hookContext.getOperationName();
             String opId = hookContext.getOperationId();
             long queryStartTime = plan.getQueryStartTime();
             String user = hookContext.getUgi().getUserName();
@@ -106,10 +106,10 @@ public TestStubHook() {
 	                   queryStartTime, user, requestuser, numMrJobs, numTezJobs, opId,queryString));
 	              break;
 	            case POST_EXEC_HOOK:
-	              sendNotification(generatePostExecNotification(queryId, currentTime, user, requestuser, true, opId,queryString,hookContext.getOutputs(), hookContext.getInputs()));
+	              sendNotification(generatePostExecNotification(operationName,queryId, currentTime, user, requestuser, true, opId,queryString,hookContext.getOutputs(), hookContext.getInputs()));
 	              break;
 	            case ON_FAILURE_HOOK:
-	              sendNotification(generatePostExecNotification(queryId, currentTime, user, requestuser , false, opId, queryString,hookContext.getOutputs(), hookContext.getInputs()));
+	              sendNotification(generatePostExecNotification(operationName,queryId, currentTime, user, requestuser , false, opId, queryString,hookContext.getOutputs(), hookContext.getInputs()));
 	              break;
 	            default:
 	              break;
@@ -155,7 +155,7 @@ public TestStubHook() {
     return queryObj.toString();
   }
 
-  String generatePostExecNotification(String queryId, long stopTime, String user, String requestuser, boolean success,
+  String generatePostExecNotification(String operationName,String queryId, long stopTime, String user, String requestuser, boolean success,
       String opId, String queryString, Set<WriteEntity> outputs, Set<ReadEntity> inputs) throws JSONException {
    
     JSONObject queryObj = new JSONObject();
@@ -177,7 +177,9 @@ public TestStubHook() {
     	String tableName=null;
     	queryObj.put("isDDL", true);
     	queryObj.put("dump_time", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(new Date()));
+    	
     	if(isDBCommand(queryString)){
+    		System.out.println("DBCommand");
     		for(WriteEntity output:outputs){
     			dbName=dbName==null?(output.getDatabase() == null ? null : output.getDatabase().getName()):dbName;
     		}
@@ -185,9 +187,18 @@ public TestStubHook() {
     	}
     	
     	if(dbName==null){
-    		Table table=null;
-    		for(WriteEntity output:outputs){
-    		table = table==null?(output.getTable()!=null?output.getTable():null):table;
+    		Table table = null;
+    		if(operationName.equalsIgnoreCase("ALTERTABLE_RENAME")){
+    			for(WriteEntity output:outputs){
+    				if(output.getTable()!=null){
+    					table = output.getTable();
+    				}
+    			}
+    		}
+    		else{
+        		for(WriteEntity output:outputs){
+        		table = table==null?(output.getTable()!=null?output.getTable():null):table;
+        		}
     		}
     		try{
     			//table is null for macros and functions. Expecting a null pointer in that case

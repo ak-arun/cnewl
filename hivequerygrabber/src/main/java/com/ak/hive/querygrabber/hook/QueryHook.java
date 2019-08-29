@@ -176,6 +176,7 @@ public QueryHook() {
             if (plan == null) {
               return;
             }
+            String operationName=hookContext.getOperationName();
             String opId = hookContext.getOperationId();
             long queryStartTime = plan.getQueryStartTime();
             String user = hookContext.getUgi().getUserName();
@@ -202,10 +203,10 @@ public QueryHook() {
 	                   queryStartTime, user, requestuser, numMrJobs, numTezJobs, opId,queryString));
 	              break;
 	            case POST_EXEC_HOOK:
-	              sendNotification(topicName,keyTabLogin,hookContext.getUgi(),generatePostExecNotification(queryId, currentTime, user, requestuser, true, opId,queryString,hookContext.getOutputs(), hookContext.getInputs()));
+	              sendNotification(topicName,keyTabLogin,hookContext.getUgi(),generatePostExecNotification(operationName,queryId, currentTime, user, requestuser, true, opId,queryString,hookContext.getOutputs(), hookContext.getInputs()));
 	              break;
 	            case ON_FAILURE_HOOK:
-	              sendNotification(topicName,keyTabLogin,hookContext.getUgi(),generatePostExecNotification(queryId, currentTime, user, requestuser , false, opId, queryString,hookContext.getOutputs(), hookContext.getInputs()));
+	              sendNotification(topicName,keyTabLogin,hookContext.getUgi(),generatePostExecNotification(operationName,queryId, currentTime, user, requestuser , false, opId, queryString,hookContext.getOutputs(), hookContext.getInputs()));
 	              break;
 	            default:
 	              break;
@@ -251,7 +252,7 @@ public QueryHook() {
     return queryObj.toString();
   }
 
-  String generatePostExecNotification(String queryId, long stopTime, String user, String requestuser, boolean success,
+  String generatePostExecNotification(String operationName,String queryId, long stopTime, String user, String requestuser, boolean success,
       String opId, String queryString, Set<WriteEntity> outputs, Set<ReadEntity> inputs) throws JSONException {
    
     JSONObject queryObj = new JSONObject();
@@ -282,8 +283,17 @@ public QueryHook() {
     	
     	if(dbName==null){
     		Table table=null;
-    		for(WriteEntity output:outputs){
-    		table = table==null?(output.getTable()!=null?output.getTable():null):table;
+    		if(operationName.equalsIgnoreCase("ALTERTABLE_RENAME")){
+    			for(WriteEntity output:outputs){
+    				if(output.getTable()!=null){
+    					table = output.getTable();
+    				}
+    			}
+    			
+    		}else{
+        		for(WriteEntity output:outputs){
+        		table = table==null?(output.getTable()!=null?output.getTable():null):table;
+        		}
     		}
     		try{
     			//table is null for macros and functions. Expecting a null pointer in that case
@@ -293,8 +303,10 @@ public QueryHook() {
     			tableName = tableName!=null?tableName:"";
     			dbName=dbName!=null?dbName:"";
     			//ignore
-    			debugLog("Error processing query "+queryId+" exception trace "+getTraceString(e));
+    			debugLog("(Ignore) Error processing query "+queryId+" exception trace "+getTraceString(e));
     		}
+    		
+    		
     	}
     	queryObj.put("db_name", dbName);
     	queryObj.put("table_name", tableName);
