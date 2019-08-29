@@ -1,0 +1,10 @@
+set hivehook.kafka.security.protocol=SASL_SSL;
+set hivehook.kafka.serviceName=hdf-kafka;
+set hivehook.kafka.bootstrapServers=***;
+set hivehook.kafka.sslcontext.truststore.type=JKS;
+set hivehook.kafka.sslcontext.truststore.password=****;
+set hivehook.kafka.sslcontext.truststore.file=***;
+set hivehook.kafka.topicName=***;
+set hive.exec.pre.hooks=com.ak.hive.querygrabber.hook.QueryHook;
+set hive.exec.post.hooks=com.ak.hive.querygrabber.hook.QueryHook;
+set hive.exec.failure.hooks=com.ak.hive.querygrabber.hook.QueryHook;
