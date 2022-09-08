@@ -19,7 +19,7 @@
 		<hadoop.version>2.7.3</hadoop.version>
 		<kafka.version>1.0.0.3.1.0.14-1</kafka.version>
 		<app.home>/home/hdfs/otg</app.home>
-		<postgres.version>42.2.6</postgres.version>
+		<postgres.version>42.4.1</postgres.version>
 		<mysql.version>5.1.24</mysql.version>
 	</properties>
 
